@@ -41,6 +41,7 @@ python -m pip install -r requirements.txt
 
 # 4. Install flash attention v2 for acceleration (requires CUDA 11.6 or above)
 python -m pip install git+https://github.com/Dao-AILab/flash-attention.git@v2.1.2.post3
+
 ```
 
 4. download pretrained models:
@@ -57,65 +58,79 @@ huggingface-cli download Tencent-Hunyuan/HunyuanDiT-v1.2
 
 
 
-## :truck: Training
+## Training Setup
 
-### Data Preparation
 
-  Refer to the commands below to prepare the training data. 
+installing requirements:
+
+```bash
+pip install -e ./IndexKits
+```
+
+setup folder link:
+
+```bash
+mkdir -p /lv0/hydit_files/dataset
+rm -rf ./dataset
+ln -s /lv0/hydit_files/dataset ./dataset
+```
+
+
+## Training Steps
+
+
+download demo data:
+
+```bash
+# (in root dir)
+cd dataset && wget -O data_demo.zip https://dit.hunyuan.tencent.com/download/HunyuanDiT/data_demo.zip && unzip data_demo.zip -d ./ && mkdir ./porcelain/arrows ./porcelain/jsons && cd ..
+```
+
+demo data is recorded in csv format:
+
+> ⚠️ Optional fields like MD5, width, and height can be omitted. If omitted, the script below will automatically calculate them. This process can be time-consuming when dealing with large-scale training data.
+> 
+> We utilize [Arrow](https://github.com/apache/arrow) for training data format, offering a standard and efficient in-memory data representation. A conversion script is provided to transform CSV files into Arrow format.
+
+
+|    Fields       | Required  |  Description     |   Example   |
+|:---------------:| :------:  |:----------------:|:-----------:|
+|   `image_path`  | Required  |  image path               |     `./dataset/porcelain/images/0.png`        | 
+|   `text_zh`     | Required  |    text               |  青花瓷风格，一只蓝色的鸟儿站在蓝色的花瓶上，周围点缀着白色花朵，背景是白色 | 
+|   `md5`         | Optional  |    image md5 (Message Digest Algorithm 5)  |    `d41d8cd98f00b204e9800998ecf8427e`         | 
+|   `width`       | Optional  |    image width    |     `1024 `       | 
+|   `height`      | Optional  |    image height   |    ` 1024 `       | 
+
+
+
+
+3. convert csv to arrow:
+
+```bash  
+# 3 Data conversion 
+python ./hydit/data_loader/csv2arrow.py ./dataset/porcelain/csvfile/image_text.csv ./dataset/porcelain/arrows 1
+```
+
+
   
-  1. Install dependencies
-  
-      We offer an efficient data management library, named IndexKits, supporting the management of reading hundreds of millions of data during training, see more in [docs](./IndexKits/README.md).
-      ```shell
-      # 1 Install dependencies
-      cd HunyuanDiT
-      pip install -e ./IndexKits
-     ```
-  2. Data download 
-  
-     Feel free to download the [data demo](https://dit.hunyuan.tencent.com/download/HunyuanDiT/data_demo.zip).
-     ```shell
-     # 2 Data download
-     wget -O ./dataset/data_demo.zip https://dit.hunyuan.tencent.com/download/HunyuanDiT/data_demo.zip
-     unzip ./dataset/data_demo.zip -d ./dataset
-     mkdir ./dataset/porcelain/arrows ./dataset/porcelain/jsons
-     ```
-  3. Data conversion 
-  
-     Create a CSV file for training data with the fields listed in the table below.
+4. Data Selection and Configuration File Creation 
     
-     |    Fields       | Required  |  Description     |   Example   |
-     |:---------------:| :------:  |:----------------:|:-----------:|
-     |   `image_path`  | Required  |  image path               |     `./dataset/porcelain/images/0.png`        | 
-     |   `text_zh`     | Required  |    text               |  青花瓷风格，一只蓝色的鸟儿站在蓝色的花瓶上，周围点缀着白色花朵，背景是白色 | 
-     |   `md5`         | Optional  |    image md5 (Message Digest Algorithm 5)  |    `d41d8cd98f00b204e9800998ecf8427e`         | 
-     |   `width`       | Optional  |    image width    |     `1024 `       | 
-     |   `height`      | Optional  |    image height   |    ` 1024 `       | 
-     
-     > ⚠️ Optional fields like MD5, width, and height can be omitted. If omitted, the script below will automatically calculate them. This process can be time-consuming when dealing with large-scale training data.
-  
-     We utilize [Arrow](https://github.com/apache/arrow) for training data format, offering a standard and efficient in-memory data representation. A conversion script is provided to transform CSV files into Arrow format.
-     ```shell  
-     # 3 Data conversion 
-     python ./hydit/data_loader/csv2arrow.py ./dataset/porcelain/csvfile/image_text.csv ./dataset/porcelain/arrows 1
-     ```
-  
-  4. Data Selection and Configuration File Creation 
-     
-      We configure the training data through YAML files. In these files, you can set up standard data processing strategies for filtering, copying, deduplicating, and more regarding the training data. For more details, see [./IndexKits](IndexKits/docs/MakeDataset.md).
-  
-      For a sample file, please refer to [file](./dataset/yamls/porcelain.yaml). For a full parameter configuration file, see [file](./IndexKits/docs/MakeDataset.md).
+    We configure the training data through YAML files. In these files, you can set up standard data processing strategies for filtering, copying, deduplicating, and more regarding the training data. For more details, see [./IndexKits](IndexKits/docs/MakeDataset.md).
+
+    For a sample file, please refer to [file](./dataset/yamls/porcelain.yaml). For a full parameter configuration file, see [file](./IndexKits/docs/MakeDataset.md).
   
      
-  5. Create training data index file using YAML file.
-    
-     ```shell
-      # Single Resolution Data Preparation
-      idk base -c dataset/yamls/porcelain.yaml -t dataset/porcelain/jsons/porcelain.json
-   
-      # Multi Resolution Data Preparation     
-      idk multireso -c dataset/yamls/porcelain_mt.yaml -t dataset/porcelain/jsons/porcelain_mt.json
-      ```
+5. Create training data index file using YAML file.
+
+> `idk`: the IndexKit installed previously
+  
+```shell
+# Single Resolution Data Preparation
+idk base -c dataset/yamls/porcelain.yaml -t dataset/porcelain/jsons/porcelain.json
+
+# Multi Resolution Data Preparation     
+idk multireso -c dataset/yamls/porcelain_mt.yaml -t dataset/porcelain/jsons/porcelain_mt.json
+```
    
   The directory structure for `porcelain` dataset is:
 
@@ -541,33 +556,4 @@ See [Tencent-Hunyuan/TensorRT-libs](https://huggingface.co/Tencent-Hunyuan/Tenso
 - We provide Distillation version of HunyuanDiT for inference acceleration.
 See [Tencent-Hunyuan/Distillation](https://huggingface.co/Tencent-Hunyuan/Distillation) for more details.
 
-## 🔗 BibTeX
-If you find [Hunyuan-DiT](https://arxiv.org/abs/2405.08748) or [DialogGen](https://arxiv.org/abs/2403.08857) useful for your research and applications, please cite using this BibTeX:
 
-```BibTeX
-@misc{li2024hunyuandit,
-      title={Hunyuan-DiT: A Powerful Multi-Resolution Diffusion Transformer with Fine-Grained Chinese Understanding}, 
-      author={Zhimin Li and Jianwei Zhang and Qin Lin and Jiangfeng Xiong and Yanxin Long and Xinchi Deng and Yingfang Zhang and Xingchao Liu and Minbin Huang and Zedong Xiao and Dayou Chen and Jiajun He and Jiahao Li and Wenyue Li and Chen Zhang and Rongwei Quan and Jianxiang Lu and Jiabin Huang and Xiaoyan Yuan and Xiaoxiao Zheng and Yixuan Li and Jihong Zhang and Chao Zhang and Meng Chen and Jie Liu and Zheng Fang and Weiyan Wang and Jinbao Xue and Yangyu Tao and Jianchen Zhu and Kai Liu and Sihuan Lin and Yifu Sun and Yun Li and Dongdong Wang and Mingtao Chen and Zhichao Hu and Xiao Xiao and Yan Chen and Yuhong Liu and Wei Liu and Di Wang and Yong Yang and Jie Jiang and Qinglin Lu},
-      year={2024},
-      eprint={2405.08748},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
-}
-
-@article{huang2024dialoggen,
-  title={DialogGen: Multi-modal Interactive Dialogue System for Multi-turn Text-to-Image Generation},
-  author={Huang, Minbin and Long, Yanxin and Deng, Xinchi and Chu, Ruihang and Xiong, Jiangfeng and Liang, Xiaodan and Cheng, Hong and Lu, Qinglin and Liu, Wei},
-  journal={arXiv preprint arXiv:2403.08857},
-  year={2024}
-}
-```
-
-## Start History
-
-<a href="https://star-history.com/#Tencent/HunyuanDiT&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Tencent/HunyuanDiT&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Tencent/HunyuanDiT&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Tencent/HunyuanDiT&type=Date" />
- </picture>
-</a>
