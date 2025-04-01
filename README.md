@@ -114,12 +114,25 @@ python ./hydit/data_loader/csv2arrow.py ./dataset/porcelain/csvfile/image_text.c
 
   
 4. Data Selection and Configuration File Creation 
-    
-    We configure the training data through YAML files. In these files, you can set up standard data processing strategies for filtering, copying, deduplicating, and more regarding the training data. For more details, see [./IndexKits](IndexKits/docs/MakeDataset.md).
 
-    For a sample file, please refer to [file](./dataset/yamls/porcelain.yaml). For a full parameter configuration file, see [file](./IndexKits/docs/MakeDataset.md).
+> (create a json file under dataset dir, using index_kits)
+
+    
+We configure the training data through YAML files. In these files, you can set up standard data processing strategies for filtering, copying, deduplicating, and more regarding the training data. For more details, see [./IndexKits](IndexKits/docs/MakeDataset.md).
+
+For a sample file, please refer to [file](./dataset/yamls/porcelain.yaml). For a full parameter configuration file, see [file](./IndexKits/docs/MakeDataset.md).
+
+
+```python
+from index_kits import IndexV2Builder
+
+arrow_files= ["/rmt/yada/apps/hydit-test/dataset/porcelain/arrows/00000.arrow",]
+
+builder = IndexV2Builder(arrow_files)
+builder.save('data_v2.json')
+```
   
-     
+    
 5. Create training data index file using YAML file.
 
 > `idk`: the IndexKit installed previously
